@@ -2,6 +2,7 @@
     "name": "files_manager",
     "version": "1.0.0",
     "description": "",
+    "type": "module",
     "main": "index.js",
     "scripts": {
         "lint": "./node_modules/.bin/eslint",
@@ -16,7 +17,7 @@
     "dependencies": {
         "bull": "^3.16.0",
         "chai-http": "^4.3.0",
-        "express": "^4.17.1",
+        "express": "^4.21.2",
         "image-thumbnail": "^1.0.10",
         "mime-types": "^2.1.27",
         "mongodb": "^3.5.9",
@@ -43,4 +44,3 @@
         "sinon": "^7.5.0"
     }
 }
-
