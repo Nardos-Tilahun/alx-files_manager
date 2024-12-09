@@ -1,10 +1,12 @@
-import { createClient } from 'redis';
-import { promisify } from 'util';
+import redis from 'redis';
 
 class RedisClient {
   constructor() {
-    this.client = createClient();
-    this.client.on('error', (err) => console.log('Redis client not connected to the server: ', err.message));
+    this.client = redis.createClient();
+
+    this.client.on('error', (error) => {
+      console.error(`Redis client error: ${error}`);
+    });
   }
 
   isAlive() {
@@ -12,34 +14,42 @@ class RedisClient {
   }
 
   async get(key) {
-    const getAsync = promisify(this.client.get).bind(this.client);
-    try {
-      const value = await getAsync(key);
-      return value;
-    } catch (err) {
-      return (`Failed to get ${key}: ${err.messsage}`);
-    }
+    return new Promise((resolve, reject) => {
+      this.client.get(key, (error, reply) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(reply);
+        }
+      });
+    });
   }
 
-  async set(key, value, duration) {
-    const setAsync = promisify(this.client.set).bind(this.client);
-    try {
-      await setAsync(key, value, 'EX', duration);
-    } catch (err) {
-      throw new Error(`Failed to set ${key}: ${err.messsage}`);
-    }
+  async set(key, value, durationInSeconds) {
+    return new Promise((resolve, reject) => {
+      this.client.setex(key, durationInSeconds, value, (error, reply) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(reply);
+        }
+      });
+    });
   }
 
   async del(key) {
-    const delAsync = promisify(this.client.del).bind(this.client);
-    try {
-      await delAsync(key);
-    } catch (err) {
-      console.log(`Failed to delete ${key}: ${err.messsage}`);
-    }
+    return new Promise((resolve, reject) => {
+      this.client.del(key, (error, reply) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(reply);
+        }
+      });
+    });
   }
 }
 
 const redisClient = new RedisClient();
-export default redisClient;
 
+export default redisClient;
