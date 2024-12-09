@@ -20,19 +20,22 @@ class FilesController {
       } = req.body;
       const { userId } = req.user;
 
+      // Check if the name is provided
       if (!name) {
         return res.status(400).json({ error: 'Missing name' });
       }
 
+      // Check if the type is valid
       if (!type || !['folder', 'file', 'image'].includes(type)) {
         return res.status(400).json({ error: 'Missing type or invalid type' });
       }
 
+      // If the type is not 'folder', check if data is provided
       if (type !== 'folder' && !data) {
         return res.status(400).json({ error: 'Missing data' });
       }
 
-      // Check if parent exists
+      // If the parentId is not 0, validate the parent
       if (parentId !== 0) {
         const parentFile = await dbClient.db.collection('files').findOne({ _id: ObjectId(parentId) });
         if (!parentFile || parentFile.type !== 'folder') {
@@ -43,33 +46,45 @@ class FilesController {
       let localPath;
       if (type !== 'folder') {
         const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+        
+        // Ensure the folder exists
+        if (!fs.existsSync(folderPath)) {
+          fs.mkdirSync(folderPath, { recursive: true });
+        }
+
+        // Generate a unique file path and store the data
         localPath = path.join(folderPath, uuidv4());
         fs.writeFileSync(localPath, Buffer.from(data, 'base64'));
 
-        // Add a job to the Bull queue for generating thumbnails
+        // Add the file to the queue for image processing (if it's an image)
         if (type === 'image') {
           await fileQueue.add({ userId, fileId: localPath });
         }
       }
 
-      const token = req.headers.authorization;
+      // Extract the token from the authorization header
+      const token = req.headers['x-token'];
 
+      // Check the token in Redis
       const redisToken = await redisClient.get(`auth_${token}`);
       if (!redisToken) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
+      // Prepare the new file object to be inserted into DB
       const newFile = {
         userId: ObjectId(userId),
         name,
         type,
         isPublic,
         parentId: ObjectId(parentId),
-        localPath: type !== 'folder' && localPath,
+        localPath: type !== 'folder' ? localPath : undefined, // Only include localPath for files/images
       };
 
+      // Insert the new file document into the DB
       const result = await dbClient.db.collection('files').insertOne(newFile);
 
+      // Respond with the created file data
       return res.status(201).json({ ...newFile, id: result.insertedId });
     } catch (error) {
       console.error(error);
@@ -216,3 +231,4 @@ class FilesController {
 }
 
 export default FilesController;
+
